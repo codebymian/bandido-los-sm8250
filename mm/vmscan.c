@@ -6891,14 +6891,6 @@ static int kswapd(void *p)
 	struct reclaim_state reclaim_state = {
 		.reclaimed_slab = 0,
 	};
-#ifdef CONFIG_KSWAPD_PERFTUNE
-	const struct cpumask *cpumask = &kswapd_cpumask;
-#else
-	const struct cpumask *cpumask = cpumask_of_node(pgdat->node_id);
-#endif
-
-	if (!cpumask_empty(cpumask))
-		set_cpus_allowed_ptr(tsk, cpumask);
 	current->reclaim_state = &reclaim_state;
 
 	/*
@@ -7071,18 +7063,9 @@ static int kswapd_cpu_online(unsigned int cpu)
 
 	for_each_node_state(nid, N_MEMORY) {
 		pg_data_t *pgdat = NODE_DATA(nid);
-		const struct cpumask *mask;
-
-#ifdef CONFIG_KSWAPD_PERFTUNE
-		mask = &kswapd_cpumask;
-#else
-		mask = cpumask_of_node(pgdat->node_id);
-#endif
-		if (cpumask_any_and(cpu_online_mask, mask) < nr_cpu_ids) {
-			for (hid = 0; hid < nr_threads; hid++) {
-				/* One of our CPUs online: restore mask */
-				set_cpus_allowed_ptr(pgdat->kswapd[hid], mask);
-			}
+		for (hid = 0; hid < nr_threads; hid++) {
+			if (pgdat->kswapd[hid])
+				kthread_bind(pgdat->kswapd[hid], hid % num_possible_cpus());
 		}
 	}
 	return 0;
@@ -7109,7 +7092,7 @@ static void update_kswapd_threads_node(int nid)
 		increase = kswapd_threads - nr_threads;
 		start_idx = last_idx + 1;
 		for (hid = start_idx; hid < (start_idx + increase); hid++) {
-			pgdat->kswapd[hid] = kthread_run(kswapd, pgdat,
+			pgdat->kswapd[hid] = kthread_create(kswapd, pgdat,
 						"kswapd%d:%d", nid, hid);
 			if (IS_ERR(pgdat->kswapd[hid])) {
 				pr_err("Failed to start kswapd%d on node %d\n",
@@ -7120,6 +7103,9 @@ static void update_kswapd_threads_node(int nid)
 				 * more threads.
 				 */
 				break;
+			} else {
+				kthread_bind(pgdat->kswapd[hid], hid % num_possible_cpus());
+				wake_up_process(pgdat->kswapd[hid]);
 			}
 		}
 	}
@@ -7162,7 +7148,7 @@ int kswapd_run(int nid)
 
 	nr_threads = kswapd_threads;
 	for (hid = 0; hid < nr_threads; hid++) {
-		pgdat->kswapd[hid] = kthread_run(kswapd, pgdat, "kswapd%d:%d",
+		pgdat->kswapd[hid] = kthread_create(kswapd, pgdat, "kswapd%d:%d",
 							nid, hid);
 		if (IS_ERR(pgdat->kswapd[hid])) {
 			/* failure at boot is fatal */
@@ -7171,6 +7157,9 @@ int kswapd_run(int nid)
 				hid, nid);
 			ret = PTR_ERR(pgdat->kswapd[hid]);
 			pgdat->kswapd[hid] = NULL;
+		} else {
+			kthread_bind(pgdat->kswapd[hid], hid % num_possible_cpus());
+			wake_up_process(pgdat->kswapd[hid]);
 		}
 	}
 	kswapd_threads_current = nr_threads;
