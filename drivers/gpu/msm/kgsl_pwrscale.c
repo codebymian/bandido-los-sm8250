@@ -6,6 +6,7 @@
 
 #include <linux/devfreq_cooling.h>
 #include <linux/slab.h>
+#include <linux/workqueue.h>
 #include <linux/msm_kgsl.h>
 
 #include "kgsl_device.h"
@@ -288,8 +289,6 @@ static int _thermal_adjust(struct kgsl_pwrctrl *pwr, int level)
 	del_timer_sync(&pwr->thermal_timer);
 	return level;
 }
-
-
 
 #ifdef DEVFREQ_FLAG_WAKEUP_MAXFREQ
 static inline bool _check_maxfreq(u32 flags)
@@ -877,6 +876,14 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 			&devfreq->dev.kobj, "devfreq");
 
 	pwrscale->devfreq_wq = create_freezable_workqueue("kgsl_devfreq_wq");
+	{
+		struct workqueue_attrs *attrs = alloc_workqueue_attrs(GFP_KERNEL);
+		if (attrs) {
+			cpumask_copy(attrs->cpumask, cpumask_of(7));
+			apply_workqueue_attrs(pwrscale->devfreq_wq, attrs);
+			free_workqueue_attrs(attrs);
+		}
+	}
 	INIT_WORK(&pwrscale->devfreq_suspend_ws, do_devfreq_suspend);
 	INIT_WORK(&pwrscale->devfreq_resume_ws, do_devfreq_resume);
 	INIT_WORK(&pwrscale->devfreq_notify_ws, do_devfreq_notify);
