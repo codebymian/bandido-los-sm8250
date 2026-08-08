@@ -178,7 +178,7 @@ if [[ -f "$IMAGE" ]]; then
 	rm -f "$INSTALL_LOG"
 	echo -e "\a"
 	echo "Installation completed! Rebooting to system..."
-	sleep 1
+	sleep 2
 	adb shell "twrp reboot"
 else
 	echo -e "\nERROR. Something broke along the way since $IMAGE is not there\n"
