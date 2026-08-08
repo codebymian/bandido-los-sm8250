@@ -1,6 +1,7 @@
 #
 # Makefile for the linux journaling routines.
 #
+ccflags-y += $(BOPTS2)
 
 obj-$(CONFIG_JBD2) += jbd2.o
 

@@ -470,7 +470,7 @@ export CFLAGS_KASAN CFLAGS_KASAN_NOSANITIZE CFLAGS_UBSAN
 export KBUILD_AFLAGS AFLAGS_KERNEL AFLAGS_MODULE
 export KBUILD_AFLAGS_MODULE KBUILD_CFLAGS_MODULE KBUILD_LDFLAGS_MODULE
 export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
-export KBUILD_ARFLAGS BOPTS BOPTS2
+export KBUILD_ARFLAGS
 
 # When compiling out-of-tree modules, put MODVERDIR in the module
 # tree rather than in the kernel tree. The kernel tree might
@@ -790,12 +790,14 @@ POLLY := -mllvm -polly \
 endif
 
 LLVMPARAMS := \
-  -mllvm -inlinecold-threshold=12 \
-  -mllvm -inline-threshold=100 \
-  -mllvm -inlinehint-threshold=450 \
-  -mllvm -inline-cold-callsite-threshold=12 \
-  -mllvm -locally-hot-callsite-threshold=300 \
-  -mllvm -inline-enable-cost-benefit-analysis=true
+  -mllvm -inlinecold-threshold=10 \
+  -mllvm -inline-threshold=80 \
+  -mllvm -inlinehint-threshold=130 \
+  -mllvm -inline-cold-callsite-threshold=10 \
+  -mllvm -locally-hot-callsite-threshold=350 \
+  -mllvm -hot-callsite-threshold=1000 \
+  -mllvm -inline-enable-cost-benefit-analysis=true \
+  -mllvm -unroll-threshold=50
 
 LLVMPARAMS_LINK := \
   -mllvm -enable-merge-functions=false

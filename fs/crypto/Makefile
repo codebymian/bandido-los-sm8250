@@ -1,3 +1,4 @@
+ccflags-y += $(BOPTS2)
 obj-$(CONFIG_FS_ENCRYPTION)	+= fscrypto.o
 
 fscrypto-y := crypto.o \
