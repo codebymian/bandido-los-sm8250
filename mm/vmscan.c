@@ -158,7 +158,7 @@ struct scan_control {
 /*
  * Number of active kswapd threads
  */
-#define DEF_KSWAPD_THREADS_PER_NODE 1
+#define DEF_KSWAPD_THREADS_PER_NODE 4
 int kswapd_threads = DEF_KSWAPD_THREADS_PER_NODE;
 int kswapd_threads_current = DEF_KSWAPD_THREADS_PER_NODE;
 
@@ -2888,11 +2888,7 @@ static int get_swappiness(struct lruvec *lruvec, struct scan_control *sc)
 	if (mem_cgroup_get_nr_swap_pages(memcg) < MIN_LRU_BATCH)
 		return 0;
 
-	/*
-	 * Bandido: keep reclaim moderately file-biased, but avoid the very
-	 * aggressive swap pressure that can shove launcher working sets into zram.
-	 */
-	return 100;
+	return mem_cgroup_swappiness(memcg);
 }
 
 static int get_nr_gens(struct lruvec *lruvec, int type)
