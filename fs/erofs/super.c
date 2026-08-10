@@ -572,6 +572,9 @@ static int erofs_fill_super(struct super_block *sb, void *data, int silent)
 		sb->s_flags &= ~SB_POSIXACL;
 
 #ifdef CONFIG_EROFS_FS_ZIP
+	err = z_erofs_init_zip_subsystem();
+	if (err)
+		return err;
 	INIT_RADIX_TREE(&sbi->workstn_tree, GFP_ATOMIC);
 #endif
 
@@ -640,6 +643,7 @@ static void erofs_put_super(struct super_block *sb)
 #ifdef CONFIG_EROFS_FS_ZIP
 	iput(sbi->managed_cache);
 	sbi->managed_cache = NULL;
+	z_erofs_exit_zip_subsystem();
 #endif
 }
 
@@ -672,9 +676,6 @@ static int __init erofs_module_init(void)
 		goto shrinker_err;
 
 	erofs_pcpubuf_init();
-	err = z_erofs_init_zip_subsystem();
-	if (err)
-		goto zip_err;
 
 	err = register_filesystem(&erofs_fs_type);
 	if (err)
@@ -683,8 +684,6 @@ static int __init erofs_module_init(void)
 	return 0;
 
 fs_err:
-	z_erofs_exit_zip_subsystem();
-zip_err:
 	erofs_exit_shrinker();
 shrinker_err:
 	kmem_cache_destroy(erofs_inode_cachep);
@@ -695,7 +694,6 @@ icache_err:
 static void __exit erofs_module_exit(void)
 {
 	unregister_filesystem(&erofs_fs_type);
-	z_erofs_exit_zip_subsystem();
 	erofs_exit_shrinker();
 
 	/* Ensure all RCU free inodes are safe before cache is destroyed. */

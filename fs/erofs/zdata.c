@@ -240,18 +240,34 @@ static inline int erofs_cpu_hotplug_init(void) { return 0; }
 static inline void erofs_cpu_hotplug_destroy(void) {}
 #endif
 
+static DEFINE_MUTEX(z_erofs_zip_mutex);
+static int z_erofs_zip_refcount;
+
 void z_erofs_exit_zip_subsystem(void)
 {
+	mutex_lock(&z_erofs_zip_mutex);
+	if (--z_erofs_zip_refcount > 0) {
+		mutex_unlock(&z_erofs_zip_mutex);
+		return;
+	}
 	erofs_cpu_hotplug_destroy();
 	erofs_destroy_percpu_workers();
 	destroy_workqueue(z_erofs_workqueue);
 	z_erofs_destroy_pcluster_pool();
+	mutex_unlock(&z_erofs_zip_mutex);
 }
 
-int __init z_erofs_init_zip_subsystem(void)
+int z_erofs_init_zip_subsystem(void)
 {
-	int err = z_erofs_create_pcluster_pool();
+	int err = 0;
 
+	mutex_lock(&z_erofs_zip_mutex);
+	if (z_erofs_zip_refcount++) {
+		mutex_unlock(&z_erofs_zip_mutex);
+		return 0;
+	}
+
+	err = z_erofs_create_pcluster_pool();
 	if (err)
 		goto out_error_pcluster_pool;
 
@@ -269,7 +285,8 @@ int __init z_erofs_init_zip_subsystem(void)
 	err = erofs_cpu_hotplug_init();
 	if (err < 0)
 		goto out_error_cpuhp_init;
-	return err;
+	mutex_unlock(&z_erofs_zip_mutex);
+	return 0;
 
 out_error_cpuhp_init:
 	erofs_destroy_percpu_workers();
@@ -278,6 +295,8 @@ out_error_pcpu_worker:
 out_error_workqueue_init:
 	z_erofs_destroy_pcluster_pool();
 out_error_pcluster_pool:
+	z_erofs_zip_refcount--;
+	mutex_unlock(&z_erofs_zip_mutex);
 	return err;
 }
 
