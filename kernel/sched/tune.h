@@ -31,7 +31,7 @@ static inline bool is_ui_thread_name(struct task_struct *p)
 
 	/* Fast-fail filter: only perform strcmp if first char matches a UI thread name */
 	if (c != 'R' && c != 's' && c != 'a' && c != 'H' && c != 'd' && c != 'T' && c != 'I' &&
-	    c != 'n' && c != 'w' && c != 'A' && c != 'N' && c != 'S')
+	    c != 'n' && c != 'w' && c != 'A' && c != 'N' && c != 'S' && c != 'i')
 		return false;
 
 	return !strcmp(comm, "RenderThread")    ||
@@ -54,6 +54,7 @@ static inline bool is_ui_thread_name(struct task_struct *p)
 	       !strcmp(comm, "ScreenDecoratio") ||
 	       !strncmp(comm, "HwBinder", 8)    ||
 	       !strncmp(comm, "droid.launcher", 14) ||
+	       !strcmp(comm, "id.app.launcher") ||
 	       !strcmp(comm, "TASKBAR_UI_THRE") ||
 	       !strcmp(comm, "InputReader")     ||
 	       !strcmp(comm, "InputDispatcher");
