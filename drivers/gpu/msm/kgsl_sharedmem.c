@@ -14,6 +14,7 @@
 
 #include "kgsl_reclaim.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_pool.h"
 
 /*
  * The user can set this from debugfs to force failed memory allocations to
@@ -1730,8 +1731,8 @@ unsigned int kgsl_gfp_mask(unsigned int page_order)
 	unsigned int gfp_mask = __GFP_HIGHMEM;
 
 	if (page_order > 0) {
-		gfp_mask |= __GFP_COMP | __GFP_NORETRY | __GFP_NOWARN;
-		gfp_mask &= ~__GFP_RECLAIM;
+		gfp_mask |= __GFP_COMP |/* __GFP_NORETRY |*/ __GFP_NOWARN;
+//		gfp_mask &= ~__GFP_RECLAIM;
 	} else
 		gfp_mask |= GFP_KERNEL;
 
