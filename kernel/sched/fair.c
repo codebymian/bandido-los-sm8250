@@ -166,9 +166,9 @@ unsigned int sysctl_sched_cfs_bandwidth_slice		= 5000UL;
  */
 unsigned int capacity_margin				= 1280;
 unsigned int sched_capacity_margin_up[NR_CPUS] = {
-			[0 ... NR_CPUS-1] = 1138}; /* ~90% upmigrate */
+			[0 ... NR_CPUS-1] = 1575}; /* ~65% upmigrate */
 unsigned int sched_capacity_margin_down[NR_CPUS] = {
-			[0 ... NR_CPUS-1] = 2560}; /* ~40% downmigrate */
+			[0 ... NR_CPUS-1] = 2048}; /* ~50% downmigrate */
 
 #ifdef CONFIG_SCHED_WALT
 /* 1ms default for 20ms window size scaled to 1024 */
@@ -6923,7 +6923,11 @@ static int get_start_cpu(struct task_struct *p)
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int start_cpu = rd->min_cap_orig_cpu;
 	int task_boost = per_task_boost(p);
-	bool boosted = schedtune_task_boost(p) > 0 ||
+	bool boosted =
+#ifdef CONFIG_BANDIDO_SCHED_UI_PLACEMENT
+			is_ui_thread(p) ||
+#endif
+			schedtune_task_boost(p) > 0 ||
 			task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
 			task_boost == TASK_BOOST_ON_MID;
 	bool task_skip_min = task_skip_min_cpu(p);
@@ -7832,7 +7836,11 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		goto fail;
 
 	sync_entity_load_avg(&p->se);
+#ifdef CONFIG_BANDIDO_SCHED_UI_PLACEMENT
 	if (!task_util_est(p) && !is_ui_thread(p))
+#else
+	if (!task_util_est(p))
+#endif
 		goto unlock;
 
 	if (sched_feat(FIND_BEST_TARGET)) {
@@ -8245,6 +8253,17 @@ static void check_preempt_wakeup(struct rq *rq, struct task_struct *p, int wake_
 		goto preempt;
 	}
 #endif
+#ifdef CONFIG_BANDIDO_SCHED_UI_PREEMPT
+	if (is_ui_thread(p) && !is_ui_thread(curr)) {
+		if (!next_buddy_marked)
+			set_next_buddy(pse);
+		goto preempt;
+	}
+
+	if (is_ui_thread(curr) && !is_ui_thread(p))
+		return;
+#endif
+
 	if (wakeup_preempt_entity(se, pse) == 1) {
 		/*
 		 * Bias pick_next to pick the sched entity that is

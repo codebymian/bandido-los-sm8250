@@ -566,7 +566,7 @@ int schedtune_task_boost(struct task_struct *p)
 #endif
 	rcu_read_unlock();
 
-#ifdef CONFIG_SCHED_WALT
+#if defined(CONFIG_SCHED_WALT) && defined(CONFIG_BANDIDO_SCHED_UI_PLACEMENT)
 	/*
 	 * Layer 2: Apply additional boost for known UI rendering threads.
 	 * Pushes these threads towards bigger cores regardless of which

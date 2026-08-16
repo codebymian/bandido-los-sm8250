@@ -1402,6 +1402,17 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 		psi_enqueue(p, flags & ENQUEUE_WAKEUP);
 	}
 
+#ifdef CONFIG_BANDIDO_UI_BOOST
+	if (is_ui_thread(p)) {
+		if (!p->ui_queued) {
+			p->ui_queued = true;
+			rq->nr_ui_running++;
+		}
+	} else {
+		p->ui_queued = false;
+	}
+#endif
+
 	uclamp_rq_inc(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
 	walt_update_last_enqueue(p);
@@ -1417,6 +1428,14 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 		sched_info_dequeued(rq, p);
 		psi_dequeue(p, flags & DEQUEUE_SLEEP);
 	}
+
+#ifdef CONFIG_BANDIDO_UI_BOOST
+	if (p->ui_queued) {
+		p->ui_queued = false;
+		if (rq->nr_ui_running > 0)
+			rq->nr_ui_running--;
+	}
+#endif
 
 	uclamp_rq_dec(rq, p);
 	p->sched_class->dequeue_task(rq, p, flags);
@@ -1756,7 +1775,7 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	rq = task_rq_lock(p, &rf);
 	update_rq_clock(rq);
 
-#ifdef CONFIG_SCHED_TUNE
+#if defined(CONFIG_SCHED_TUNE) && defined(CONFIG_BANDIDO_SCHED_UI_PLACEMENT)
 	if (is_ui_thread(p)) {
 		new_mask = cpu_active_mask;
 	}
@@ -7359,6 +7378,9 @@ void __init sched_init(void)
 		rq = cpu_rq(i);
 		raw_spin_lock_init(&rq->lock);
 		rq->nr_running = 0;
+#ifdef CONFIG_BANDIDO_UI_BOOST
+		rq->nr_ui_running = 0;
+#endif
 		rq->calc_load_active = 0;
 		rq->calc_load_update = jiffies + LOAD_FREQ;
 		init_cfs_rq(&rq->cfs);

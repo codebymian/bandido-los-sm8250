@@ -62,6 +62,10 @@ struct sugov_cpu {
 	unsigned long		bw_dl;
 	unsigned long		min;
 	unsigned long		max;
+
+#ifdef CONFIG_BANDIDO_UI_BOOST
+	u64			last_ui_time;
+#endif
 };
 
 static DEFINE_PER_CPU(struct sugov_cpu, sugov_cpu);
@@ -190,13 +194,42 @@ static inline bool sugov_rtg_boost_active(struct sugov_cpu *sg_cpu)
 	       (rq->grp_time.curr_runnable_sum > 0 || rq->grp_time.prev_runnable_sum > 0);
 }
 
+#ifdef CONFIG_BANDIDO_UI_BOOST
+static inline bool sugov_ui_active(struct sugov_cpu *sg_cpu, u64 time)
+{
+	struct rq *rq = cpu_rq(sg_cpu->cpu);
+	bool has_ui = (rq->nr_ui_running > 0) || is_ui_thread(rq->curr);
+
+	if (has_ui) {
+		sg_cpu->last_ui_time = time;
+		return true;
+	}
+
+	/*
+	 * If the display is at high refresh rate (120Hz), hold the boost
+	 * across inter-frame VSYNC sleeps for up to 32ms (~4 frames).
+	 * If the screen is at 60Hz or idle, do not extend boost.
+	 */
+	if (display_is_120hz() && sg_cpu->last_ui_time && (time - sg_cpu->last_ui_time < 32000000ULL))
+		return true;
+
+	return false;
+}
+#else
+static inline bool sugov_ui_active(struct sugov_cpu *sg_cpu, u64 time)
+{
+	return false;
+}
+#endif
+
 static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
-			      unsigned long *max)
+			      unsigned long *max, u64 time)
 {
 #ifdef CONFIG_SCHED_WALT
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
 
-	if (sugov_rtg_boost_active(sg_cpu) || schedtune_cpu_boost_with(sg_cpu->cpu, NULL) > 0)
+	if (sugov_rtg_boost_active(sg_cpu) || sugov_ui_active(sg_cpu, time) ||
+	    schedtune_cpu_boost_with(sg_cpu->cpu, NULL) > 0)
 		*util = max(*util, sg_policy->rtg_boost_util);
 #endif
 }
@@ -345,17 +378,17 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 
 	sugov_update_rtg_boost_util(sg_policy, max);
 	util = sugov_iowait_apply(sg_cpu, time, util, max);
-	sugov_walt_adjust(sg_cpu, &util, &max);
+	sugov_walt_adjust(sg_cpu, &util, &max, time);
 	next_f = get_next_freq(sg_policy, util, max);
 
 	/*
 	 * Fast-Ramp: Bypass the rate limit if the next frequency is
 	 * significantly higher (>20% jump) than the current one,
-	 * OR if RTG Boost is active (prioritizing GUI responsiveness).
+	 * OR if UI / RTG Boost is active (prioritizing GUI responsiveness).
 	 */
 	if (!sugov_should_update_freq(sg_policy, time) &&
 	    next_f < (sg_policy->next_freq + (sg_policy->next_freq / 5)) &&
-	    !sugov_rtg_boost_active(sg_cpu))
+	    !sugov_rtg_boost_active(sg_cpu) && !sugov_ui_active(sg_cpu, time))
 		return;
 
 	sugov_fast_switch(sg_policy, time, next_f);
@@ -378,7 +411,7 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 			continue;
 
 		j_util = sugov_iowait_apply(j_sg_cpu, time, j_util, j_max);
-		sugov_walt_adjust(j_sg_cpu, &j_util, &j_max);
+		sugov_walt_adjust(j_sg_cpu, &j_util, &j_max, time);
 
 		if (j_util * max > j_max * util) {
 			util = j_util;
@@ -421,11 +454,11 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 	/*
 	 * Fast-Ramp Shared: Bypass the rate limit if the next frequency is
 	 * significantly higher (>20% jump) than the current one,
-	 * OR if RTG Boost is active (prioritizing GUI responsiveness).
+	 * OR if UI / RTG Boost is active (prioritizing GUI responsiveness).
 	 */
 	if (!sugov_should_update_freq(sg_policy, time) &&
 	    next_f < (sg_policy->next_freq + (sg_policy->next_freq / 5)) &&
-	    !sugov_rtg_boost_active(sg_cpu)) {
+	    !sugov_rtg_boost_active(sg_cpu) && !sugov_ui_active(sg_cpu, time)) {
 		raw_spin_unlock(&sg_policy->update_lock);
 		return;
 	}

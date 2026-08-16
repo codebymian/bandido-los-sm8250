@@ -32,11 +32,18 @@ static DEFINE_SPINLOCK(suspend_lock);
 #define MIN_BUSY		1000
 #define MAX_TZ_VERSION		0
 
+#ifdef CONFIG_BANDIDO_GPU_BOOST
+/*
+ * CEILING is 12msec (~1 frame at 90/120Hz) for fast burst response.
+ */
+#define CEILING			12000
+#else
 /*
  * CEILING is 50msec, larger than any standard
  * frame length, but less than the idle timer.
  */
 #define CEILING			50000
+#endif
 #define TZ_RESET_ID		0x3
 #define TZ_UPDATE_ID		0x4
 #define TZ_INIT_ID		0x6
@@ -435,6 +442,10 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 	}
 
 	*freq = devfreq->profile->freq_table[level];
+#ifdef CONFIG_BANDIDO_GPU_BOOST
+	if (*freq < 400000000)
+		*freq = 400000000;
+#endif
 	return 0;
 }
 

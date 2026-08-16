@@ -2678,16 +2678,16 @@ DEFINE_RWLOCK(related_thread_group_lock);
  * Task groups whose aggregate demand on a cpu is more than
  * sched_group_upmigrate need to be up-migrated if possible.
  */
-unsigned int __read_mostly sched_group_upmigrate = 20000000;
-unsigned int __read_mostly sysctl_sched_group_upmigrate_pct = 100;
+unsigned int __read_mostly sched_group_upmigrate = 14000000;
+unsigned int __read_mostly sysctl_sched_group_upmigrate_pct = 70;
 
 /*
  * Task groups, once up-migrated, will need to drop their aggregate
  * demand to less than sched_group_downmigrate before they are "down"
  * migrated.
  */
-unsigned int __read_mostly sched_group_downmigrate = 19000000;
-unsigned int __read_mostly sysctl_sched_group_downmigrate_pct = 95;
+unsigned int __read_mostly sched_group_downmigrate = 11000000;
+unsigned int __read_mostly sysctl_sched_group_downmigrate_pct = 55;
 
 static inline
 void update_best_cluster(struct related_thread_group *grp,
@@ -2737,7 +2737,7 @@ int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 
 	rcu_read_lock();
 
-#ifdef CONFIG_SCHED_TUNE
+#if defined(CONFIG_SCHED_TUNE) && defined(CONFIG_BANDIDO_SCHED_UI_PLACEMENT)
 	/*
 	 * Layer 4: UI threads always prefer non-little clusters.
 	 * RTG membership is tied to top-app cgroup, which is transient —
@@ -2746,7 +2746,7 @@ int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 	 * avoid the latency spike of migrating back on the first frame.
 	 * Only applied when the screen is on to save battery.
 	 */
-	if (lcd_is_on && is_ui_thread(p)) {
+	if (lcd_is_on && (is_ui_thread(p) || task_in_related_thread_group(p))) {
 		rc = !is_min_capacity_cluster(cluster);
 		rcu_read_unlock();
 		return rc;
@@ -3752,8 +3752,19 @@ unlock:
 	return ret;
 }
 
+enum fps current_display_fps = FPS60;
+EXPORT_SYMBOL(current_display_fps);
+
+bool display_is_120hz(void)
+{
+	return current_display_fps >= FPS90;
+}
+EXPORT_SYMBOL(display_is_120hz);
+
 void sched_set_refresh_rate(enum fps fps)
 {
+	current_display_fps = fps;
+
 	if (HZ == 250 && sysctl_sched_dynamic_ravg_window_enable) {
 		if (fps > FPS90)
 			display_sched_ravg_window_nr_ticks = 2;
@@ -3769,9 +3780,9 @@ EXPORT_SYMBOL(sched_set_refresh_rate);
 
 /* Migration margins */
 unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS] = {
-			[0 ... MAX_MARGIN_LEVELS-1] = 1138}; /* ~90% upmigrate */
+			[0 ... MAX_MARGIN_LEVELS-1] = 1575}; /* ~65% upmigrate */
 unsigned int sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS] = {
-			[0 ... MAX_MARGIN_LEVELS-1] = 2560}; /* ~40% downmigrate */
+			[0 ... MAX_MARGIN_LEVELS-1] = 2048}; /* ~50% downmigrate */
 
 #ifdef CONFIG_PROC_SYSCTL
 static void sched_update_updown_migrate_values(bool up)

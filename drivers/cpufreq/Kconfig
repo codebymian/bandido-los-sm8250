@@ -251,6 +251,36 @@ config CPU_FREQ_GOV_BANDIDO
 	  Bandido governor is a tuned version of schedutil with 
 	  RTG boost and screen-off optimizations.
 
+config BANDIDO_SCHED_UI_PREEMPT
+	bool "Bandido Scheduler: UI thread preemption priority and protection"
+	default y
+	help
+	  Protects active UI threads (RenderThread, surfaceflinger, animators)
+	  from being preempted by background tasks and grants instant preemption
+	  over non-UI tasks in CFS wakeup.
+
+config BANDIDO_SCHED_UI_PLACEMENT
+	bool "Bandido Scheduler: Direct placement of UI threads on Mid/Big cores"
+	default y
+	help
+	  Directs UI rendering tasks to skip Little cores (CPUs 0-3) on wakeup
+	  and start directly on Mid or Big cores (CPUs 4-7).
+
+config BANDIDO_UI_BOOST
+	bool "Bandido CPU Governor: UI Frequency Boost floor"
+	depends on CPU_FREQ_GOV_BANDIDO
+	default y
+	help
+	  Boosts CPU frequency floor in Bandido governor during active UI frames
+	  and 120Hz display refresh rate sessions.
+
+config BANDIDO_GPU_BOOST
+	bool "Bandido GPU: 400MHz minimum frequency floor and 12ms burst ceiling"
+	default y
+	help
+	  Maintains 400MHz floor during GPU active rendering and lowers burst
+	  ceiling from 50ms to 12ms for instantaneous clock ramps.
+
 config CPU_FREQ_GOV_BANDIDOSAVER
 	tristate "'bandidosaver' cpufreq policy governor"
 	depends on CPU_FREQ && SMP

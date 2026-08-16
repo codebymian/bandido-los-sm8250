@@ -943,6 +943,9 @@ struct rq {
 	 * remote CPUs use both these fields when doing load calculation.
 	 */
 	unsigned int		nr_running;
+#ifdef CONFIG_BANDIDO_UI_BOOST
+	unsigned int		nr_ui_running;
+#endif
 #ifdef CONFIG_NUMA_BALANCING
 	unsigned int		nr_numa_running;
 	unsigned int		nr_preferred_running;
