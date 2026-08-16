@@ -5501,21 +5501,6 @@ int kgsl_of_property_read_ddrtype(struct device_node *node, const char *base,
 	return of_property_read_u32(node, base, ptr);
 }
 
-static void kgsl_bind_workqueue(struct workqueue_struct *wq, const struct cpumask *mask)
-{
-	struct workqueue_attrs *attrs;
-
-	if (!wq)
-		return;
-
-	attrs = alloc_workqueue_attrs(GFP_KERNEL);
-	if (attrs) {
-		cpumask_copy(attrs->cpumask, mask);
-		apply_workqueue_attrs(wq, attrs);
-		free_workqueue_attrs(attrs);
-	}
-}
-
 int kgsl_device_platform_probe(struct kgsl_device *device)
 {
 	int status = -EINVAL;
@@ -5632,7 +5617,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	device->events_wq = alloc_workqueue("kgsl-events",
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS | WQ_HIGHPRI, 0);
-	kgsl_bind_workqueue(device->events_wq, cpumask_of(7));
 
 	/* Initialize the snapshot engine */
 	kgsl_device_snapshot_init(device);
@@ -5807,25 +5791,20 @@ static int __init kgsl_core_init(void)
 
 	kgsl_driver.workqueue = alloc_workqueue("kgsl-workqueue",
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
-	kgsl_bind_workqueue(kgsl_driver.workqueue, cpumask_of(7));
 
 	kgsl_driver.mem_workqueue = alloc_workqueue("kgsl-mementry",
 		WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
-	kgsl_bind_workqueue(kgsl_driver.mem_workqueue, cpumask_of(7));
 
 	INIT_WORK(&kgsl_driver.mem_work, _flush_mem_workqueue);
 
 	kthread_init_worker(&kgsl_driver.worker);
 
-	kgsl_driver.worker_thread = kthread_create(kthread_worker_fn,
+	kgsl_driver.worker_thread = kthread_run(kthread_worker_fn,
 		&kgsl_driver.worker, "kgsl_worker_thread");
 
 	if (IS_ERR(kgsl_driver.worker_thread)) {
 		pr_err("kgsl: unable to start kgsl thread\n");
 		goto err;
-	} else {
-		kthread_bind(kgsl_driver.worker_thread, 7);
-		wake_up_process(kgsl_driver.worker_thread);
 	}
 
 	sched_setscheduler(kgsl_driver.worker_thread, SCHED_FIFO, &param);

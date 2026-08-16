@@ -876,14 +876,6 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 			&devfreq->dev.kobj, "devfreq");
 
 	pwrscale->devfreq_wq = create_freezable_workqueue("kgsl_devfreq_wq");
-	{
-		struct workqueue_attrs *attrs = alloc_workqueue_attrs(GFP_KERNEL);
-		if (attrs) {
-			cpumask_copy(attrs->cpumask, cpumask_of(7));
-			apply_workqueue_attrs(pwrscale->devfreq_wq, attrs);
-			free_workqueue_attrs(attrs);
-		}
-	}
 	INIT_WORK(&pwrscale->devfreq_suspend_ws, do_devfreq_suspend);
 	INIT_WORK(&pwrscale->devfreq_resume_ws, do_devfreq_resume);
 	INIT_WORK(&pwrscale->devfreq_notify_ws, do_devfreq_notify);
