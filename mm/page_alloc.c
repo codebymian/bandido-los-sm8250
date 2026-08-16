@@ -8026,7 +8026,7 @@ int __meminit init_per_zone_wmark_min(void)
 	lowmem_kbytes = nr_free_buffer_pages() * (PAGE_SIZE >> 10);
 	new_min_free_kbytes = int_sqrt(lowmem_kbytes * 16);
 
-	min_free_kbytes = 131072;
+	min_free_kbytes = 32768;
 	setup_per_zone_wmarks();
 	refresh_zone_stat_thresholds();
 	setup_per_zone_lowmem_reserve();
