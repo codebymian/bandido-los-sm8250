@@ -403,6 +403,10 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 	if ((stats->total_time == 0) ||
 		(priv->bin.total_time < FLOOR) ||
 		(unsigned int) priv->bin.busy_time < MIN_BUSY) {
+#ifdef CONFIG_BANDIDO_GPU_BOOST
+		if (*freq < 400000000)
+			*freq = 400000000;
+#endif
 		return 0;
 	}
 
@@ -455,6 +459,7 @@ static int tz_notify(struct notifier_block *nb, unsigned long type, void *devp)
 	struct devfreq *devfreq = devp;
 
 	switch (type) {
+	case ADRENO_DEVFREQ_NOTIFY_SUBMIT:
 	case ADRENO_DEVFREQ_NOTIFY_IDLE:
 	case ADRENO_DEVFREQ_NOTIFY_RETIRE:
 		mutex_lock(&devfreq->lock);
@@ -467,8 +472,6 @@ static int tz_notify(struct notifier_block *nb, unsigned long type, void *devp)
 			mutex_unlock(&partner_gpu_profile->bus_devfreq->lock);
 		}
 		break;
-	/* ignored by this governor */
-	case ADRENO_DEVFREQ_NOTIFY_SUBMIT:
 	default:
 		break;
 	}

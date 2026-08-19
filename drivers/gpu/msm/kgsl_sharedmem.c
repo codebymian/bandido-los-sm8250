@@ -1712,7 +1712,7 @@ void kgsl_zero_page(struct page *p, unsigned int order)
 		struct page *page = nth_page(p, i);
 		void *addr = kmap_atomic(page);
 
-		memset(addr, 0, PAGE_SIZE);
+		clear_page(addr);
 		dmac_flush_range(addr, addr + PAGE_SIZE);
 		kunmap_atomic(addr);
 	}

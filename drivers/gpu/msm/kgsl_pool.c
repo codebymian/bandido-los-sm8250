@@ -26,6 +26,8 @@
 
 #define KGSL_MAX_RESERVED_PAGES 32768
 
+#define KGSL_POOL_CACHE_SIZE 128
+
 /**
  * struct kgsl_page_pool - Structure to hold information for the pool
  * @pool_order: Page order describing the size of the page
@@ -36,15 +38,19 @@
  * @max_pages: Limit on number of pages this pool can hold
  * @list_lock: Spinlock for page list in the pool
  * @page_list: List of pages held/reserved in this pool
+ * @cache_count: Number of hot pages in fast pointer cache
+ * @cache: Array stack of hot pages for L1-cache friendly O(1) allocation
  */
 struct kgsl_page_pool {
 	unsigned int pool_order;
-	atomic_t page_count;
+	int page_count;
 	unsigned int reserved_pages;
 	bool allocation_allowed;
 	unsigned int max_pages;
 	spinlock_t list_lock;
-	struct llist_head page_list;
+	struct list_head page_list;
+	unsigned int cache_count;
+	struct page *cache[KGSL_POOL_CACHE_SIZE];
 };
 
 static struct kgsl_page_pool kgsl_pools[KGSL_MAX_POOLS];
@@ -87,8 +93,14 @@ _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 
 	kgsl_zero_page(p, pool->pool_order);
 
-	llist_add((struct llist_node *)&p->lru, &pool->page_list);
-	atomic_inc(&pool->page_count);
+	spin_lock(&pool->list_lock);
+	if (pool->cache_count < KGSL_POOL_CACHE_SIZE) {
+		pool->cache[pool->cache_count++] = p;
+	} else {
+		list_add_tail(&p->lru, &pool->page_list);
+	}
+	pool->page_count++;
+	spin_unlock(&pool->list_lock);
 	mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
 			    (1 << pool->pool_order));
 }
@@ -97,16 +109,20 @@ _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 static struct page *
 _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 {
-	struct llist_node *node;
 	struct page *p = NULL;
 
 	spin_lock(&pool->list_lock);
-	node = llist_del_first(&pool->page_list);
+	if (pool->cache_count > 0) {
+		p = pool->cache[--pool->cache_count];
+		pool->page_count--;
+	} else if (pool->page_count > 0) {
+		p = list_first_entry(&pool->page_list, struct page, lru);
+		pool->page_count--;
+		list_del(&p->lru);
+	}
 	spin_unlock(&pool->list_lock);
 
-	if (node) {
-		atomic_dec(&pool->page_count);
-		p = container_of((struct list_head *)node, typeof(*p), lru);
+	if (p != NULL) {
 		mod_node_page_state(page_pgdat(p),
 				    NR_KERNEL_MISC_RECLAIMABLE,
 				    -(1 << pool->pool_order));
@@ -119,7 +135,13 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 static int
 kgsl_pool_size(struct kgsl_page_pool *pool)
 {
-	return atomic_read(&pool->page_count) * (1 << pool->pool_order);
+	int size;
+
+	spin_lock(&pool->list_lock);
+	size = pool->page_count * (1 << pool->pool_order);
+	spin_unlock(&pool->list_lock);
+
+	return size;
 }
 
 /* Returns the number of pages in all kgsl page pools */
@@ -141,8 +163,11 @@ static int kgsl_pool_reclaimable_total(void)
 
 	for (i = 0; i < kgsl_num_pools; i++) {
 		struct kgsl_page_pool *pool = &kgsl_pools[i];
-		int count = atomic_read(&pool->page_count);
-		int shrinkable = count - (int)pool->reserved_pages;
+		int shrinkable;
+
+		spin_lock(&pool->list_lock);
+		shrinkable = pool->page_count - (int)pool->reserved_pages;
+		spin_unlock(&pool->list_lock);
 
 		if (shrinkable > 0)
 			total += shrinkable * (1 << pool->pool_order);
@@ -167,7 +192,7 @@ _kgsl_pool_shrink(struct kgsl_page_pool *pool, int num_pages, bool exit)
 		struct page *page;
 
 		/* Do not shrink reserved pages unless exiting */
-		if (!exit && atomic_read(&pool->page_count) <= pool->reserved_pages)
+		if (!exit && pool->page_count <= pool->reserved_pages)
 			break;
 
 		page = _kgsl_pool_get_page(pool);
@@ -419,7 +444,7 @@ void kgsl_pool_free_page(struct page *page)
 	if (!kgsl_pool_max_pages ||
 			(kgsl_pool_size_total() < kgsl_pool_max_pages)) {
 		pool = _kgsl_get_pool_from_order(page_order);
-		if (pool && (atomic_read(&pool->page_count) < pool->max_pages)) {
+		if (pool && (pool->page_count < pool->max_pages)) {
 			_kgsl_pool_add_page(pool, page);
 			return;
 		}
@@ -525,8 +550,9 @@ static void kgsl_pool_config(unsigned int order, unsigned int reserved_pages,
 	kgsl_pools[kgsl_num_pools].reserved_pages = reserved_pages;
 	kgsl_pools[kgsl_num_pools].allocation_allowed = allocation_allowed;
 	kgsl_pools[kgsl_num_pools].max_pages = max_pages;
+	kgsl_pools[kgsl_num_pools].cache_count = 0;
 	spin_lock_init(&kgsl_pools[kgsl_num_pools].list_lock);
-	init_llist_head(&kgsl_pools[kgsl_num_pools].page_list);
+	INIT_LIST_HEAD(&kgsl_pools[kgsl_num_pools].page_list);
 	kgsl_num_pools++;
 }
 
