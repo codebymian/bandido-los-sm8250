@@ -32,6 +32,8 @@ struct sugov_policy {
 	struct list_head	tunables_hook;
 	unsigned long		rtg_boost_util;
 	unsigned long		max;
+	unsigned long		dvfs_capacity;
+	u16			dvfs_headroom_lut[SCHED_CAPACITY_SCALE + 1];
 
 	raw_spinlock_t		update_lock;	/* For shared policies */
 	u64			last_freq_update_time;
@@ -62,6 +64,7 @@ struct sugov_cpu {
 	unsigned long		bw_dl;
 	unsigned long		min;
 	unsigned long		max;
+	u16			*dvfs_headroom_lut;
 
 #ifdef CONFIG_BANDIDO_UI_BOOST
 	u64			last_ui_time;
@@ -151,10 +154,9 @@ static void sugov_fast_switch(struct sugov_policy *sg_policy, u64 time,
 	sg_policy->next_freq = next_freq;
 }
 
-#define TARGET_LOAD 89
-#define DEFAULT_CPU0_RTG_BOOST_FREQ 1248000
-#define DEFAULT_CPU4_RTG_BOOST_FREQ 1478400
-#define DEFAULT_CPU7_RTG_BOOST_FREQ 1516800
+#define DEFAULT_CPU0_RTG_BOOST_FREQ 1344000
+#define DEFAULT_CPU4_RTG_BOOST_FREQ 1766400
+#define DEFAULT_CPU7_RTG_BOOST_FREQ 1862400
 
 static unsigned long freq_to_util(struct sugov_policy *sg_policy,
 				  unsigned int freq)
@@ -175,7 +177,7 @@ static unsigned long freq_to_util(struct sugov_policy *sg_policy,
 static inline unsigned long target_util(struct sugov_policy *sg_policy,
 					unsigned int freq)
 {
-	return mult_frac(freq_to_util(sg_policy, freq), TARGET_LOAD, 100);
+	return freq_to_util(sg_policy, freq);
 }
 
 static void sugov_update_rtg_boost_util(struct sugov_policy *sg_policy,
@@ -234,10 +236,47 @@ static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 #endif
 }
 
+static inline unsigned long sugov_apply_dvfs_headroom(unsigned long util,
+						      unsigned long capacity,
+						      unsigned long threshold)
+{
+	unsigned long delta, headroom;
+	unsigned long capped_util = min(util, capacity);
+	unsigned long delta_t = (capacity * 220) >> 10;
+
+	delta = capacity - capped_util;
+
+	headroom = min((delta_t * capped_util) / threshold,
+			(delta_t * delta) / (capacity - threshold));
+
+	return capped_util + headroom;
+}
+
+static void sugov_build_dvfs_headroom_lut(struct sugov_policy *sg_policy)
+{
+	struct cpufreq_policy *policy = sg_policy->policy;
+	unsigned long capacity = arch_scale_cpu_capacity(NULL, policy->cpu);
+	unsigned long threshold;
+	unsigned long util;
+
+	if (sg_policy->dvfs_capacity == capacity)
+		return;
+
+	sg_policy->dvfs_capacity = capacity;
+	threshold = (capacity * 15) / 100;
+
+	for (util = 0; util <= SCHED_CAPACITY_SCALE; util++)
+		sg_policy->dvfs_headroom_lut[util] =
+			sugov_apply_dvfs_headroom(util, capacity, threshold);
+}
+
 static unsigned long bandido_map_util_freq(unsigned long util,
 					unsigned long freq, unsigned long cap,
 					struct sugov_cpu *sg_cpu)
 {
+	if (sg_cpu->dvfs_headroom_lut)
+		util = sg_cpu->dvfs_headroom_lut[min_t(unsigned long, util, SCHED_CAPACITY_SCALE)];
+
 	return (freq + (freq >> 2)) * util / cap;
 }
 
@@ -256,6 +295,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	sg_policy->need_freq_update = false;
 	sg_policy->prev_cached_raw_freq = sg_policy->cached_raw_freq;
 	sg_policy->cached_raw_freq = freq;
+
 	return cpufreq_driver_resolve_freq(policy, freq);
 }
 
@@ -722,6 +762,7 @@ static int sugov_start(struct cpufreq_policy *policy)
 	struct sugov_policy *sg_policy = policy->governor_data;
 	unsigned int cpu;
 
+	sugov_build_dvfs_headroom_lut(sg_policy);
 	update_min_rate_limit_ns(sg_policy);
 	sg_policy->last_freq_update_time	= 0;
 	sg_policy->next_freq			= 0;
@@ -738,6 +779,7 @@ static int sugov_start(struct cpufreq_policy *policy)
 		memset(sg_cpu, 0, sizeof(*sg_cpu));
 		sg_cpu->cpu			= cpu;
 		sg_cpu->sg_policy		= sg_policy;
+		sg_cpu->dvfs_headroom_lut	= sg_policy->dvfs_headroom_lut;
 		sg_cpu->min			=
 			(SCHED_CAPACITY_SCALE * policy->cpuinfo.min_freq) /
 			policy->cpuinfo.max_freq;
@@ -769,6 +811,8 @@ static void sugov_limits(struct cpufreq_policy *policy)
 	struct sugov_policy *sg_policy = policy->governor_data;
 	unsigned long flags, now;
 	unsigned int freq;
+
+	sugov_build_dvfs_headroom_lut(sg_policy);
 
 	raw_spin_lock_irqsave(&sg_policy->update_lock, flags);
 	freq = policy->cur;

@@ -471,6 +471,7 @@ struct task_group {
 	unsigned int		latency_sensitive;
 #endif
 
+	bool			is_top_app;
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

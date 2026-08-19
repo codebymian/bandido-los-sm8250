@@ -584,6 +584,40 @@ int schedtune_task_boost(struct task_struct *p)
 	return task_boost;
 }
 
+bool is_top_app_main_thread(struct task_struct *p)
+{
+	if (unlikely(!p || p->pid != p->tgid))
+		return false;
+
+#ifdef CONFIG_SCHED_TUNE
+	/* Android 13 path (SchedTune) */
+	if (schedtune_initialized) {
+		struct schedtune *st;
+		bool is_colocate = false;
+
+		rcu_read_lock();
+		st = task_schedtune(p);
+		if (st)
+			is_colocate = st->colocate;
+		rcu_read_unlock();
+
+		if (is_colocate)
+			return true;
+	}
+#endif
+
+#ifdef CONFIG_CGROUP_SCHED
+	/* Android 14/15/16+ path (cpuctl/cgroups) */
+	{
+		struct task_group *tg = task_group(p);
+		if (tg && tg->is_top_app)
+			return true;
+	}
+#endif
+
+	return false;
+}
+
 int schedtune_prefer_idle(struct task_struct *p)
 {
 	struct schedtune *st;

@@ -44,9 +44,11 @@ static inline bool is_ui_thread_name(struct task_struct *p)
 	return false;
 }
 
+bool is_top_app_main_thread(struct task_struct *p);
+
 static inline bool is_ui_thread(struct task_struct *p)
 {
-	return p->is_ui;
+	return p->is_ui || is_top_app_main_thread(p);
 }
 
 
@@ -64,4 +66,9 @@ void schedtune_dequeue_task(struct task_struct *p, int cpu);
 #define schedtune_dequeue_task(task, cpu) do { } while (0)
 
 #define stune_util(cpu, other_util, walt_load) cpu_util_cfs(cpu_rq(cpu))
+
+static inline bool is_ui_thread(struct task_struct *p)
+{
+	return p->is_ui;
+}
 #endif /* CONFIG_SCHED_TUNE */

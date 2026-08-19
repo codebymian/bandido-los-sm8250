@@ -7860,6 +7860,10 @@ static int cpu_cgroup_css_online(struct cgroup_subsys_state *css)
 	if (parent)
 		sched_online_group(tg, parent);
 
+	if (css->cgroup && css->cgroup->kn && css->cgroup->kn->name &&
+	    !strcmp(css->cgroup->kn->name, "top-app"))
+		tg->is_top_app = true;
+
 #ifdef CONFIG_UCLAMP_TASK_GROUP
 	/* Propagate the effective uclamp value for the new group */
 	mutex_lock(&uclamp_mutex);
