@@ -3737,7 +3737,7 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 		DSI_ERR("invalid dsc slice-per-pkt:%d\n", data);
 		goto error;
 	}
-	priv_info->dsc.slice_per_pkt = data;
+	priv_info->dsc.slice_per_pkt = 2;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsc-bit-per-component",
 		&data);
@@ -4770,7 +4770,9 @@ void dsi_panel_put_mode(struct dsi_display_mode *mode)
 		dsi_panel_dealloc_cmd_packets(&mode->priv_info->cmd_sets[i]);
 	}
 
+	kfree(mode->priv_info->phy_timing_val);
 	kfree(mode->priv_info);
+	mode->priv_info = NULL;
 }
 
 void dsi_panel_calc_dsi_transfer_time(struct dsi_host_common_cfg *config,
