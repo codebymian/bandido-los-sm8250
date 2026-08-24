@@ -1000,6 +1000,25 @@ static int update_cpumask(struct cpuset *cs, struct cpuset *trialcs,
 			return retval;
 	}
 
+	/*
+	 * Shielding for Snapdragon 865:
+	 * Little cores: 0-3, Big cores: 4-6, Prime core: 7
+	 * - top-app: 0-7 (exclusive access to 6-7 when needed)
+	 * - foreground: 0-5 (shield CPUs 6 and 7 for top-app UI/render)
+	 * - background/system-background/restricted: 0-3 (all 4 LITTLE cores)
+	 */
+	if (cs->css.cgroup && cs->css.cgroup->kn && cs->css.cgroup->kn->name) {
+		const char *cg_name = cs->css.cgroup->kn->name;
+
+		if (!strcmp(cg_name, "foreground")) {
+			cpulist_parse("0-5", trialcs->cpus_requested);
+		} else if (!strcmp(cg_name, "background") ||
+			   !strcmp(cg_name, "system-background") ||
+			   !strcmp(cg_name, "restricted")) {
+			cpulist_parse("0-3", trialcs->cpus_requested);
+		}
+	}
+
 	if (!cpumask_subset(trialcs->cpus_requested, cpu_present_mask))
 		return -EINVAL;
 
