@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-ccflags-y += $(BOPTS2)
+ccflags-y += $(BOPTS)
 #
 # Makefile for the linux ext4-filesystem routines.
 #
