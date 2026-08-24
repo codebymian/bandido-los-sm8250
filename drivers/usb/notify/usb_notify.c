@@ -706,7 +706,7 @@ static void update_cable_status(struct otg_notify *n, unsigned long event,
 		if (check_block_event(n, event) ||
 			(check_event_type(u_notify->c_type)
 				& NOTIFY_EVENT_NEED_HOST &&
-					(n->unsupport_host || u_notify->restricted)))
+					n->unsupport_host))
 			u_notify->c_status = (start) ?
 				NOTIFY_EVENT_BLOCKING : NOTIFY_EVENT_BLOCKED;
 		else
@@ -1362,17 +1362,6 @@ static void otg_notify_state(struct otg_notify *n,
 	event = PHY_EVENT(event);
 
 	type = check_event_type(event);
-	
-	if (virtual && enable) {
-		if (check_event_type(event) & NOTIFY_EVENT_NEED_HOST) {
-			if (!(check_event_type(u_notify->c_type)
-				& NOTIFY_EVENT_NEED_HOST)) {
-				pr_err("event skip. mismatch cable type(%s)\n",
-					event_string(u_notify->c_type));
-				goto no_save_event;
-			}
-		}
-	}
 
 	if (!(type & NOTIFY_EVENT_NOSAVE)) {
 		update_cable_status(n, event, virtual, enable, 1);
@@ -1479,12 +1468,6 @@ static void otg_notify_state(struct otg_notify *n,
 			if (check_same_event_type(prev_c_type, event)
 				&& !virtual) {
 				pr_err("now host mode, skip this command\n");
-				goto err;
-			}
-
-			if (u_notify->restricted) {
-				send_usb_restrict_uevent(USB_SECURE_RESTRICTED);
-				pr_err("now restricted, skip this command\n");
 				goto err;
 			}
 
