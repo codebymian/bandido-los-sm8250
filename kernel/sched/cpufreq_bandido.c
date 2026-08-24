@@ -155,8 +155,8 @@ static void sugov_fast_switch(struct sugov_policy *sg_policy, u64 time,
 }
 
 #define DEFAULT_CPU0_RTG_BOOST_FREQ 1344000
-#define DEFAULT_CPU4_RTG_BOOST_FREQ 1766400
-#define DEFAULT_CPU7_RTG_BOOST_FREQ 1862400
+#define DEFAULT_CPU4_RTG_BOOST_FREQ 2246400
+#define DEFAULT_CPU7_RTG_BOOST_FREQ 2265600
 
 static unsigned long freq_to_util(struct sugov_policy *sg_policy,
 				  unsigned int freq)
