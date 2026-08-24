@@ -790,10 +790,10 @@ POLLY := -mllvm -polly \
 endif
 
 LLVMPARAMS := \
-  -mllvm -inlinecold-threshold=10 \
+  -mllvm -inlinecold-threshold=12 \
   -mllvm -inline-threshold=80 \
-  -mllvm -inlinehint-threshold=130 \
-  -mllvm -inline-cold-callsite-threshold=10 \
+  -mllvm -inlinehint-threshold=200 \
+  -mllvm -inline-cold-callsite-threshold=12 \
   -mllvm -locally-hot-callsite-threshold=350 \
   -mllvm -hot-callsite-threshold=1000 \
   -mllvm -inline-enable-cost-benefit-analysis=true \
@@ -802,7 +802,7 @@ LLVMPARAMS := \
 LLVMPARAMS_LINK := \
   -mllvm -enable-merge-functions=false
 
-COPTS := -Os -ffast-math -falign-functions=1 \
+COPTS := -Os -ffast-math \
 	-fvectorize -fslp-vectorize \
 	$(LLVMPARAMS)
 
