@@ -7104,7 +7104,7 @@ static void update_kswapd_threads_node(int nid)
 				 */
 				break;
 			} else {
-				kthread_bind(pgdat->kswapd[hid], hid % num_possible_cpus());
+				kthread_bind(pgdat->kswapd[hid], 4 + (hid % 4));
 				wake_up_process(pgdat->kswapd[hid]);
 			}
 		}
@@ -7158,7 +7158,7 @@ int kswapd_run(int nid)
 			ret = PTR_ERR(pgdat->kswapd[hid]);
 			pgdat->kswapd[hid] = NULL;
 		} else {
-			kthread_bind(pgdat->kswapd[hid], hid % num_possible_cpus());
+			kthread_bind(pgdat->kswapd[hid], 4 + (hid % 4));
 			wake_up_process(pgdat->kswapd[hid]);
 		}
 	}
