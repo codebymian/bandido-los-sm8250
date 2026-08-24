@@ -11,7 +11,7 @@ export LLVM=1 LLVM_IAS=1
 
 #setting toolchain path
 ROOT_DIR="/home/me/kernelupgrade"
-TC_DIR="$ROOT_DIR/toolchains/llvm-23.1.0-rc2-x86_64"
+TC_DIR="$ROOT_DIR/toolchains/llvm-23.1.0-rc3-x86_64"
 export PATH="$TC_DIR/bin:$PATH"
 
 ##########################################################
