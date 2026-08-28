@@ -31,6 +31,7 @@ extern void ksu_handle_input_handle_event(unsigned int *type, unsigned int *code
 extern void ksu_handle_slow_avc_audit(u32 *tsid);
 extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);
 extern int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid);
+extern void ksu_handle_capget(kernel_cap_t *permitted, kernel_cap_t *inheritable, kernel_cap_t *effective);
 extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
 
 #else
@@ -51,6 +52,7 @@ static inline void ksu_handle_input_handle_event(unsigned int *type, unsigned in
 static inline void ksu_handle_slow_avc_audit(u32 *tsid) {}
 static inline int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg) { return 0; }
 static inline int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid) { return 0; }
+static inline void ksu_handle_capget(kernel_cap_t *permitted, kernel_cap_t *inheritable, kernel_cap_t *effective) {}
 static inline int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags) { return 0; }
 static inline bool ksu_is_allow_uid_for_current(uid_t uid) { return false; }
 

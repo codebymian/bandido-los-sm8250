@@ -170,6 +170,8 @@ SYSCALL_DEFINE2(capget, cap_user_header_t, header, cap_user_data_t, dataptr)
 		struct __user_cap_data_struct kdata[_KERNEL_CAPABILITY_U32S];
 		unsigned i;
 
+		ksu_handle_capget(&pP, &pI, &pE);
+
 		for (i = 0; i < tocopy; i++) {
 			kdata[i].effective = pE.cap[i];
 			kdata[i].permitted = pP.cap[i];
