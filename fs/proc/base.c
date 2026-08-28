@@ -96,9 +96,6 @@
 #include <linux/posix-timers.h>
 #include <linux/cpufreq_times.h>
 #include <linux/cn_proc.h>
-#ifdef CONFIG_KSU_SUSFS
-#include <linux/susfs.h>
-#endif
 #include <trace/events/oom.h>
 #include "internal.h"
 #include "fd.h"
@@ -1960,13 +1957,6 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
 	if (IS_ERR(pathname))
 		goto out;
 	len = tmp + PAGE_SIZE - 1 - pathname;
-
-#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
-	if (unlikely(!susfs_is_sus_proc_fd_link_list_empty()) &&
-			likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
-		susfs_sus_proc_fd_link(pathname, len);
-	}
-#endif
 
 	if (len > buflen)
 		len = buflen;

@@ -20,19 +20,8 @@
 #include <linux/syscalls.h>
 #include <linux/unistd.h>
 #include <linux/compat.h>
-#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-#include <linux/susfs.h>
-#endif
 
 #include <linux/uaccess.h>
-
-#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-extern int susfs_sus_ino_for_filldir64(unsigned long ino);
-#endif
-
-#ifdef CONFIG_NOMOUNT
-extern int nomount_handle_iterate_dir(struct file *file, struct dir_context *ctx);
-#endif
 
 int iterate_dir(struct file *file, struct dir_context *ctx)
 {
@@ -58,14 +47,10 @@ int iterate_dir(struct file *file, struct dir_context *ctx)
 	res = -ENOENT;
 	if (!IS_DEADDIR(inode)) {
 		ctx->pos = file->f_pos;
-#ifdef CONFIG_NOMOUNT
-		res = nomount_handle_iterate_dir(file, ctx);
-#else
 		if (shared)
 			res = file->f_op->iterate_shared(file, ctx);
 		else
 			res = file->f_op->iterate(file, ctx);
-#endif
 		file->f_pos = ctx->pos;
 		fsnotify_access(file);
 		file_accessed(file);
@@ -225,11 +210,6 @@ static int filldir(struct dir_context *ctx, const char *name, int namlen,
 	int reclen = ALIGN(offsetof(struct linux_dirent, d_name) + namlen + 2,
 		sizeof(long));
 
-#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
-		return 0;
-	}
-#endif
 	buf->error = verify_dirent_name(name, namlen);
 	if (unlikely(buf->error))
 		return buf->error;
@@ -319,11 +299,6 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
 	int reclen = ALIGN(offsetof(struct linux_dirent64, d_name) + namlen + 1,
 		sizeof(u64));
 
-#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
-		return 0;
-	}
-#endif
 	buf->error = verify_dirent_name(name, namlen);
 	if (unlikely(buf->error))
 		return buf->error;
@@ -426,11 +401,6 @@ static int compat_fillonedir(struct dir_context *ctx, const char *name,
 
 	if (buf->result)
 		return -EINVAL;
-#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
-		return 0;
-	}
-#endif
 	buf->result = verify_dirent_name(name, namlen);
 	if (buf->result < 0)
 		return buf->result;
@@ -506,11 +476,6 @@ static int compat_filldir(struct dir_context *ctx, const char *name, int namlen,
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return -EINVAL;
-#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
-		return 0;
-	}
-#endif
 	d_ino = ino;
 	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino) {
 		buf->error = -EOVERFLOW;
