@@ -22,8 +22,6 @@ extern bool __ksu_is_allow_uid_for_current(uid_t uid);
 extern int ksu_handle_faccessat(int *dfd, const char __user **filename_ptr, int *mode, int *flags);
 extern int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr, size_t *count_ptr, loff_t **pos_ptr);
 extern int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr, struct user_arg_ptr *argv, struct user_arg_ptr *envp, int *flags);
-extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags);
-extern long ksu_handle_execve_sucompat(const char __user **filename_ptr, int orig_nr, const struct pt_regs *regs);
 extern void ksu_handle_execve_ksud(const char __user **filename_ptr, void *argv);
 extern void ksu_handle_newfstat_ret(unsigned int *fd, struct stat __user **statbuf_ptr);
 extern void ksu_handle_fstat64_ret(unsigned long *fd, struct stat64 __user **statbuf_ptr);
@@ -43,8 +41,6 @@ extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *fla
 static inline int ksu_handle_faccessat(int *dfd, const char __user **filename_ptr, int *mode, int *flags) { return 0; }
 static inline int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr, size_t *count_ptr, loff_t **pos_ptr) { return 0; }
 static inline int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr, struct user_arg_ptr *argv, struct user_arg_ptr *envp, int *flags) { return 0; }
-static inline int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags) { return 0; }
-static inline long ksu_handle_execve_sucompat(const char __user **filename_ptr, int orig_nr, const struct pt_regs *regs) { return 0; }
 static inline void ksu_handle_execve_ksud(const char __user **filename_ptr, void *argv) {}
 static inline void ksu_handle_newfstat_ret(unsigned int *fd, struct stat __user **statbuf_ptr) {}
 static inline void ksu_handle_fstat64_ret(unsigned long *fd, struct stat64 __user **statbuf_ptr) {}

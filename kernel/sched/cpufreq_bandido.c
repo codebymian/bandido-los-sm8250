@@ -106,17 +106,19 @@ static inline bool use_pelt(void)
 static bool sugov_up_down_rate_limit(struct sugov_policy *sg_policy, u64 time,
 				     unsigned int next_freq)
 {
-	s64 delta_ns = time - sg_policy->last_freq_update_time;
-
-	/* 20ms ramp-up delay when screen is off to save battery */
-	if (!lcd_is_on && next_freq > sg_policy->next_freq && delta_ns < 20000000)
-		return true;
+	s64 delta_ns;
 
 	/* Never delay ramp-up — respond instantly to load spikes */
 	if (next_freq >= sg_policy->next_freq)
 		return false;
 
 	/* Delay ramp-down to prevent stutter on bursty workloads */
+	delta_ns = time - sg_policy->last_freq_update_time;
+
+	/* 20ms ramp-up delay when screen is off to save battery */
+	if (!lcd_is_on && next_freq > sg_policy->next_freq && delta_ns < 20000000)
+		return true;
+
 	return delta_ns < sg_policy->down_rate_delay_ns;
 }
 
@@ -142,6 +144,7 @@ static void sugov_fast_switch(struct sugov_policy *sg_policy, u64 time,
 			      unsigned int next_freq)
 {
 	struct cpufreq_policy *policy = sg_policy->policy;
+	unsigned int cpu;
 
 	if (!sugov_update_next_freq(sg_policy, time, next_freq))
 		return;
@@ -151,7 +154,11 @@ static void sugov_fast_switch(struct sugov_policy *sg_policy, u64 time,
 		return;
 
 	policy->cur = next_freq;
-	sg_policy->next_freq = next_freq;
+
+	if (trace_cpu_frequency_enabled()) {
+		for_each_cpu(cpu, policy->cpus)
+			trace_cpu_frequency(next_freq, cpu);
+	}
 }
 
 #define DEFAULT_CPU0_RTG_BOOST_FREQ 1344000
@@ -716,20 +723,20 @@ static int sugov_init(struct cpufreq_policy *policy)
 
 	stale_ns = sched_ravg_window + (sched_ravg_window >> 3);
 
-	out:
+out:
 	mutex_unlock(&global_tunables_lock);
 	return 0;
 
-	fail:
+fail:
 	kobject_put(&tunables->attr_set.kobj);
 	policy->governor_data = NULL;
 	sugov_clear_global_tunables();
 
-	free_sg_policy:
+free_sg_policy:
 	mutex_unlock(&global_tunables_lock);
 	sugov_policy_free(sg_policy);
 
-	disable_fast_switch:
+disable_fast_switch:
 	cpufreq_disable_fast_switch(policy);
 
 	pr_err("initialization failed (error %d)\n", ret);
@@ -798,6 +805,7 @@ static int sugov_start(struct cpufreq_policy *policy)
 
 static void sugov_stop(struct cpufreq_policy *policy)
 {
+	struct sugov_policy *sg_policy = policy->governor_data;
 	unsigned int cpu;
 
 	for_each_cpu(cpu, policy->cpus)
