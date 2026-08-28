@@ -2,6 +2,11 @@
 #complete Bandido kernel build script with LTO support
 #the pgo support is unused right now
 
+export LC_ALL=C
+export KBUILD_BUILD_TIMESTAMP=$(TZ="Asia/Seoul" date "+%a %b %d %H:%M:%S KST %Y")
+export KBUILD_BUILD_USER="dpi"
+export KBUILD_BUILD_HOST="SWDD6114"
+
 unset LLVM
 #GCC SETUP
 BUILD_CROSS_COMPILE=aarch64-linux-gnu-
@@ -10,7 +15,7 @@ BUILD_CROSS_COMPILE=aarch64-linux-gnu-
 export LLVM=1 LLVM_IAS=1
 
 #setting toolchain path
-ROOT_DIR="/home/me/kernelupgrade"
+ROOT_DIR="/home/ignacio/tool"
 TC_DIR="$ROOT_DIR/toolchains/llvm-23.1.0-rc3-x86_64"
 export PATH="$TC_DIR/bin:$PATH"
 
@@ -87,6 +92,15 @@ if [[ $1 != "flash" ]]; then
 		esac
 	fi
 
+	# Inject KernelSU configuration if ksu.config exists
+	if [[ -f "ksu.config" ]]; then
+		echo -e "\n################# Applying ksu.config #################\n"
+		cat ksu.config >> out/.config
+	elif [[ -f "arch/arm64/configs/ksu.config" ]]; then
+		echo -e "\n################# Applying arch/arm64/configs/ksu.config #################\n"
+		cat arch/arm64/configs/ksu.config >> out/.config
+	fi
+
 	make -j$CPU -C $(pwd) O=$(pwd)/out ARCH=arm64 CROSS_COMPILE=$BUILD_CROSS_COMPILE \
 		CLANG_TRIPLE=$CLANG_TRIPLE oldconfig
 
@@ -101,7 +115,7 @@ if [[ -f "$IMAGE" ]]; then
 	DATE_END=$(date +"%s")
 	DIFF=$(($DATE_END - $DATE_START))
 
-	KERNELZIP="bandido-$COMPILER-$(date +"%Y%m%d%H%M").zip"
+	KERNELZIP="Shadow-$COMPILER-$(date +"%Y%m%d%H%M").zip"
 
 	rm AnyKernel3/dtb* >/dev/null 2>&1
 	rm AnyKernel3/*Image* >/dev/null 2>&1
@@ -126,8 +140,9 @@ if [[ -f "$IMAGE" ]]; then
 	echo -e "\nTime elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.\n"
 
 	#save a copy
-	cp -v $KERNELZIP ~/build
-
+	mkdir -p ~/build
+	cp -v $KERNELZIP ~/build/
+	
 	#this will wait for the device to try to flash automatically
 	while true; do
 		adb start-server >/dev/null 2>&1

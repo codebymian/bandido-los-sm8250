@@ -230,6 +230,7 @@ static void sugov_fast_switch(struct sugov_policy *sg_policy, u64 time,
 		return;
 
 	policy->cur = next_freq;
+	sg_policy->next_freq = next_freq;
 }
 
 static void sugov_deferred_update(struct sugov_policy *sg_policy, u64 time,
