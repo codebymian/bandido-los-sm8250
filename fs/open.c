@@ -27,7 +27,6 @@
 #include <linux/rcupdate.h>
 #include <linux/audit.h>
 #include <linux/falloc.h>
-#include <linux/kernelsu.h>
 #include <linux/fs_struct.h>
 #include <linux/ima.h>
 #include <linux/dnotify.h>
@@ -364,9 +363,6 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
 	struct vfsmount *mnt;
 	int res;
 	unsigned int lookup_flags = LOOKUP_FOLLOW;
-
-	if (ksu_su_compat_enabled && ksu_is_allow_uid_for_current(current_uid().val))
-		ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
 
 	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
 		return -EINVAL;

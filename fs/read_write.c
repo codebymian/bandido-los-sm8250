@@ -13,7 +13,6 @@
 #include <linux/uio.h>
 #include <linux/fsnotify.h>
 #include <linux/security.h>
-#include <linux/kernelsu.h>
 #include <linux/export.h>
 #include <linux/syscalls.h>
 #include <linux/pagemap.h>
@@ -438,13 +437,6 @@ EXPORT_SYMBOL(kernel_read);
 ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
-
-	if (ksu_vfs_read_hook) {
-		if (file && (file->f_mode & FMODE_READ)) {
-			struct file *f = file;
-			ksu_handle_vfs_read(&f, &buf, &count, &pos);
-		}
-	}
 
 	if (!(file->f_mode & FMODE_READ))
 		return -EBADF;

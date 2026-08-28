@@ -17,7 +17,7 @@
 #include <linux/syscalls.h>
 #include <linux/pagemap.h>
 #include <linux/compat.h>
-#include <linux/kernelsu.h>
+
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
 
@@ -169,9 +169,6 @@ int vfs_statx(int dfd, const char __user *filename, int flags,
 	struct path path;
 	int error = -EINVAL;
 	unsigned int lookup_flags = LOOKUP_FOLLOW | LOOKUP_AUTOMOUNT;
-
-	if (ksu_su_compat_enabled && ksu_is_allow_uid_for_current(current_uid().val))
-		ksu_handle_stat(&dfd, &filename, &flags);
 
 	if ((flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT |
 		       AT_EMPTY_PATH | KSTAT_QUERY_FLAGS)) != 0)
@@ -366,9 +363,6 @@ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
 	error = vfs_fstatat(dfd, filename, &stat, flag);
 	if (error)
 		return error;
-
-	ksu_handle_newfstat_ret((unsigned int *)&dfd, &statbuf);
-
 	return cp_new_stat(&stat, statbuf);
 }
 #endif
@@ -380,8 +374,6 @@ SYSCALL_DEFINE2(newfstat, unsigned int, fd, struct stat __user *, statbuf)
 
 	if (!error)
 		error = cp_new_stat(&stat, statbuf);
-
-	ksu_handle_newfstat_ret(&fd, &statbuf);
 
 	return error;
 }
@@ -508,8 +500,6 @@ SYSCALL_DEFINE2(fstat64, unsigned long, fd, struct stat64 __user *, statbuf)
 
 	if (!error)
 		error = cp_new_stat64(&stat, statbuf);
-
-	ksu_handle_fstat64_ret(&fd, &statbuf);
 
 	return error;
 }

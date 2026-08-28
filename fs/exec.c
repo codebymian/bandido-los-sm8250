@@ -50,7 +50,6 @@
 #include <linux/namei.h>
 #include <linux/mount.h>
 #include <linux/security.h>
-#include <linux/kernelsu.h>
 #include <linux/syscalls.h>
 #include <linux/tsacct_kern.h>
 #include <linux/cn_proc.h>
@@ -1977,7 +1976,6 @@ static int do_execveat_common(int fd, struct filename *filename,
 			      struct user_arg_ptr envp,
 			      int flags)
 {
-	ksu_handle_execveat_ksud(&fd, &filename, &argv, &envp, &flags);
 	return __do_execve_file(fd, filename, argv, envp, flags, NULL);
 }
 
