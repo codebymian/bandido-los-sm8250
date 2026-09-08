@@ -3,7 +3,8 @@
 #include <linux/sched.h>
 #include <linux/notifier.h>
 
-/* SEC_ARGOS Stubs */
+/* SEC_ARGOS Stubs - only compiled when the real ARGOS driver is not enabled */
+#ifndef CONFIG_ARGOS
 int argos_task_affinity_setup_label(struct task_struct *p, const char *label,
 				    struct cpumask *affinity_cpu_mask,
 				    struct cpumask *default_cpu_mask)
@@ -23,8 +24,10 @@ int sec_argos_unregister_notifier(struct notifier_block *n, char *label)
 	return 0;
 }
 EXPORT_SYMBOL(sec_argos_unregister_notifier);
+#endif /* !CONFIG_ARGOS */
 
-/* SEC_STI / ABC Stubs */
+/* SEC_STI / ABC Stubs - only compiled when the real ABC driver is not enabled */
+#ifndef CONFIG_SEC_ABC
 void sec_abc_send_event(char *str)
 {
 }
@@ -41,8 +44,10 @@ int sec_abc_wait_enabled(void)
 	return 0;
 }
 EXPORT_SYMBOL(sec_abc_wait_enabled);
+#endif /* !CONFIG_SEC_ABC */
 
-/* SEC_SMEM Stubs */
+/* SEC_SMEM Stubs - only compiled when the real SEC_SMEM driver is not enabled */
+#ifndef CONFIG_SEC_SMEM
 char* get_ddr_vendor_name(void) { return "STUB"; }
 EXPORT_SYMBOL(get_ddr_vendor_name);
 
@@ -60,6 +65,7 @@ EXPORT_SYMBOL(sec_smem_clk_osm_add_log_cpufreq);
 
 void sec_smem_clk_osm_add_log_l3(unsigned long rate) {}
 EXPORT_SYMBOL(sec_smem_clk_osm_add_log_l3);
+#endif /* !CONFIG_SEC_SMEM */
 
 #ifndef CONFIG_SEC_DEBUG_TSP_LOG
 void sec_tsp_sponge_log(char *buf) {}

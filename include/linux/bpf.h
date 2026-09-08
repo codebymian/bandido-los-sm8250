@@ -1908,11 +1908,25 @@ extern const struct bpf_func_proto bpf_snprintf_btf_proto;
 extern const struct bpf_func_proto bpf_per_cpu_ptr_proto;
 extern const struct bpf_func_proto bpf_this_cpu_ptr_proto;
 
+#ifdef CONFIG_BPF_EVENTS
 const struct bpf_func_proto *bpf_tracing_func_proto(
 	enum bpf_func_id func_id, const struct bpf_prog *prog);
 
 const struct bpf_func_proto *tracing_prog_func_proto(
   enum bpf_func_id func_id, const struct bpf_prog *prog);
+#else
+static inline const struct bpf_func_proto *bpf_tracing_func_proto(
+	enum bpf_func_id func_id, const struct bpf_prog *prog)
+{
+	return NULL;
+}
+
+static inline const struct bpf_func_proto *tracing_prog_func_proto(
+  enum bpf_func_id func_id, const struct bpf_prog *prog)
+{
+	return NULL;
+}
+#endif
 
 /* Shared helpers among cBPF and eBPF. */
 void bpf_user_rnd_init_once(void);

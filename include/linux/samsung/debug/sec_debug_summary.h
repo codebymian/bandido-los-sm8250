@@ -63,7 +63,7 @@ static inline void sec_debug_save_cpu_freq_voltage(int cpu, int flag, unsigned l
 #endif	/* CONFIG_SEC_DEBUG_VERBOSE_SUMMARY_HTML */
 
 
-#ifdef CONFIG_SEC_DEBUG_MDM_FILE_INFO
+#if defined(CONFIG_SEC_DEBUG_MDM_FILE_INFO) && IS_ENABLED(CONFIG_SEC_DEBUG_SUMMARY)
 /* FIXME: this function is not referenced anywhere */
 extern void sec_modify_restart_level_mdm(int value);
 

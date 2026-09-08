@@ -48,7 +48,7 @@ static int msm_gpio_chip_base = 0;
 #define MST_GPIO_D_DATA 43
 #endif
 
-static inline bool msm_gpio_is_valid(int gpionum)
+bool msm_gpio_is_valid(int gpionum)
 {
 	if (likely(total_pin_count > 0) && unlikely(gpionum >= total_pin_count))
 		return false;
@@ -71,6 +71,7 @@ static inline bool msm_gpio_is_valid(int gpionum)
 
 	return true;
 }
+EXPORT_SYMBOL(msm_gpio_is_valid);
 
 #ifdef CONFIG_SEC_PM_DEBUG
 #include <linux/sec-pinmux.h>
